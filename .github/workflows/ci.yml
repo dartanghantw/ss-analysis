@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -63,11 +63,12 @@ jobs:
 
   test:
     name: Tests (make pytest)
+    needs: [cosmetic, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -92,7 +93,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
