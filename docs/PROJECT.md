@@ -146,4 +146,3 @@ ss-analysis surface 10.0.0.1 --tcp-scan replace --tcp-ports 80,443,8080 --http -
 - [ ] Excessive data exposure — API returns more than needed
 - [ ] Broken API versioning — Old versions still active
 - [ ] Missing pagination — Returns all records without limit
-

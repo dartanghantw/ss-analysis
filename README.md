@@ -134,6 +134,26 @@ uv run pre-commit run --all-files      # run once manually
 
 Hooks include **pre-commit-hooks** (whitespace, YAML/TOML, merge conflicts, large files) and **`make ruff`**, **`make pytest`**. **`make pip-audit`** is registered for **pre-push** and **manual** only (slower, needs network).
 
+### CI (GitHub Actions)
+
+Workflow: **[.github/workflows/ci.yml](.github/workflows/ci.yml)**
+
+| Job | What runs |
+|-----|------------|
+| **ruff** | `make ruff` |
+| **security** | `make pip-audit` |
+| **test** | `make pytest` |
+| **release** | Only on **version tags** `v*` or **Actions → Run workflow** (version input on `main` / `master`): `uv build`, then **`gh release create`** so the **`.whl`** is attached to a **GitHub Release** (downloadable from the Releases page). |
+
+**Tag-based release** (after `uv.lock` is committed and CI is green):
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+**Manual release** (creates tag `v…` and release from the current `main` / `master` commit): GitHub → *Actions* → *CI* → *Run workflow* → enter version `0.1.0` or `v0.1.0`.
+
 ---
 
 ## Project layout
@@ -151,6 +171,8 @@ src/ss_analysis/
 tests/
   test_port_spec.py     # Port list / merge / replace unit tests
   test_cli_ports.py     # CLI help and validation (Typer CliRunner)
+.github/workflows/
+  ci.yml                 # ruff, pip-audit, pytest, release wheel
 docs/
   PROJECT.md            # Specification and checklist source
 ```
