@@ -9,9 +9,10 @@ from rich.console import Console
 from rich.table import Table
 
 from ss_analysis.check_engine import CheckResult, run_checklist
-from ss_analysis.data import COMMON_SERVICE_NAMES, DEFAULT_TCP_PORTS, DEFAULT_UDP_PORTS
+from ss_analysis.data import COMMON_SERVICE_NAMES, DEFAULT_UDP_PORTS
 from ss_analysis.http_context import HttpCheckContext, collect_http_check_context
 from ss_analysis.http_probe import HttpProbeResult, probe_http, rest_likelihood
+from ss_analysis.port_spec import TcpScanPolicy, build_scan_tcp_ports, http_probe_port_set, parse_port_csv
 from ss_analysis.scan import PortHit, scan_tcp_ports, scan_udp_ports
 
 app = typer.Typer(
@@ -91,21 +92,32 @@ def _check_table(host: str, port: int, results: list[CheckResult]) -> Table:
     return t
 
 
+def _base_tcp_row(hit: PortHit) -> dict[str, Any]:
+    return {
+        "port": hit.port,
+        "protocol": hit.protocol,
+        "state": hit.state,
+        "detail": hit.detail,
+        "common": COMMON_SERVICE_NAMES.get(hit.port, ""),
+        "http": "",
+        "rest": "",
+    }
+
+
+def _skipped_http_row(hit: PortHit, *, with_http_columns: bool) -> dict[str, Any]:
+    row = _base_tcp_row(hit)
+    if with_http_columns:
+        row["http"] = "—"
+        row["rest"] = "outside --http-ports"
+    return row
+
+
 async def _enrich_row_http_only(
     connect_host: str,
     host_header: str,
     hit: PortHit,
 ) -> dict[str, Any]:
-    common = COMMON_SERVICE_NAMES.get(hit.port, "")
-    row: dict[str, Any] = {
-        "port": hit.port,
-        "protocol": hit.protocol,
-        "state": hit.state,
-        "detail": hit.detail,
-        "common": common,
-        "http": "",
-        "rest": "",
-    }
+    row = _base_tcp_row(hit)
     if hit.protocol != "TCP":
         return row
 
@@ -130,16 +142,7 @@ async def _enrich_row_with_check(
     *,
     fill_http_columns: bool,
 ) -> tuple[dict[str, Any], HttpCheckContext | None]:
-    common = COMMON_SERVICE_NAMES.get(hit.port, "")
-    base: dict[str, Any] = {
-        "port": hit.port,
-        "protocol": hit.protocol,
-        "state": hit.state,
-        "detail": hit.detail,
-        "common": common,
-        "http": "",
-        "rest": "",
-    }
+    base = _base_tcp_row(hit)
     if hit.protocol != "TCP":
         return base, None
 
@@ -160,6 +163,22 @@ async def _enrich_row_with_check(
 @app.command("surface")
 def surface(
     host: str = typer.Argument(..., help="DNS name or IP address to scan."),
+    tcp_scan: TcpScanPolicy = typer.Option(
+        TcpScanPolicy.merge,
+        "--tcp-scan",
+        help='TCP targets: "merge" = defaults ∪ ports; "replace" = only --tcp-ports / --http-ports.',
+        case_sensitive=False,
+    ),
+    tcp_ports: str | None = typer.Option(
+        None,
+        "--tcp-ports",
+        help="Comma-separated TCP ports to include in the TCP sweep (1–65535).",
+    ),
+    http_ports: str | None = typer.Option(
+        None,
+        "--http-ports",
+        help="Comma-separated ports: always scanned on TCP; --http / --check only run on these open ports.",
+    ),
     http: bool = typer.Option(False, "--http", help="Probe open TCP ports for HTTP and REST-like behavior."),
     check: bool = typer.Option(
         False,
@@ -173,13 +192,26 @@ def surface(
     try_probe_for_surface = want_http_columns or want_check
 
     try:
+        extra_tcp = parse_port_csv(tcp_ports, label="--tcp-ports")
+        http_only = parse_port_csv(http_ports, label="--http-ports")
+        scan_tcp_port_tuple = build_scan_tcp_ports(
+            policy=tcp_scan,
+            extra_tcp=extra_tcp,
+            http_ports=http_only,
+        )
+        http_filter = http_probe_port_set(http_only)
+    except ValueError as exc:
+        _result_table("surface — ports", str(exc))
+        raise typer.Exit(code=2) from exc
+
+    try:
         connect_host, family = resolve_target(host)
     except typer.BadParameter as exc:
         _result_table("surface — resolution", str(exc))
         raise typer.Exit(code=2) from exc
 
     async def run_scan() -> tuple[list[PortHit], list[PortHit]]:
-        tcp_task = scan_tcp_ports(connect_host, DEFAULT_TCP_PORTS)
+        tcp_task = scan_tcp_ports(connect_host, scan_tcp_port_tuple)
         udp_task = scan_udp_ports(connect_host, DEFAULT_UDP_PORTS, family=family)
         return await asyncio.gather(tcp_task, udp_task)
 
@@ -193,19 +225,32 @@ def surface(
     hits.sort(key=lambda h: (h.port, h.protocol))
 
     if not hits:
+        hint = ""
+        if tcp_scan == TcpScanPolicy.replace:
+            hint = f" (TCP ports: {', '.join(str(p) for p in scan_tcp_port_tuple)})"
         _result_table(
             "surface — open ports",
-            f"No open ports found on {host!r} within default TCP/UDP lists.",
+            f"No open ports found on {host!r} within the selected TCP/UDP lists{hint}.",
         )
         return
 
     check_by_port: dict[int, HttpCheckContext | None] = {}
+
+    def should_probe_http(hit: PortHit) -> bool:
+        if hit.protocol != "TCP":
+            return False
+        if http_filter is None:
+            return True
+        return hit.port in http_filter
 
     async def enrich_all() -> list[dict[str, Any]]:
         sem = asyncio.Semaphore(8)
 
         async def one(hit: PortHit) -> dict[str, Any]:
             async with sem:
+                if hit.protocol == "TCP" and try_probe_for_surface and not should_probe_http(hit):
+                    return _skipped_http_row(hit, with_http_columns=want_http_columns)
+
                 if want_check:
                     row, ctx = await _enrich_row_with_check(
                         connect_host,
@@ -213,40 +258,23 @@ def surface(
                         hit,
                         fill_http_columns=want_http_columns,
                     )
-                    if hit.protocol == "TCP":
+                    if hit.protocol == "TCP" and should_probe_http(hit):
                         check_by_port[hit.port] = ctx
                     return row
                 if want_http_columns:
                     return await _enrich_row_http_only(connect_host, host, hit)
-                return {
-                    "port": hit.port,
-                    "protocol": hit.protocol,
-                    "state": hit.state,
-                    "detail": hit.detail,
-                    "common": COMMON_SERVICE_NAMES.get(hit.port, ""),
-                    "http": "",
-                    "rest": "",
-                }
+                return _base_tcp_row(hit)
 
         return await asyncio.gather(*(one(h) for h in hits))
 
-    rows = asyncio.run(enrich_all()) if try_probe_for_surface else [
-        {
-            "port": h.port,
-            "protocol": h.protocol,
-            "state": h.state,
-            "detail": h.detail,
-            "common": COMMON_SERVICE_NAMES.get(h.port, ""),
-            "http": "",
-            "rest": "",
-        }
-        for h in hits
-    ]
+    rows = asyncio.run(enrich_all()) if try_probe_for_surface else [_base_tcp_row(h) for h in hits]
 
     console.print(_build_surface_table(rows, with_http=want_http_columns))
 
     if want_check:
         for hit in tcp_hits:
+            if not should_probe_http(hit):
+                continue
             ctx = check_by_port.get(hit.port)
             if ctx is None:
                 _result_table(

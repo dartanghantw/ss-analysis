@@ -11,6 +11,27 @@ ss-analysis: This is the base command line that will execute the CLI. All output
 
 ### Option --check: Perform a validation of the following checks on the HTTP/HTTPS ports
 
+### Standard TCP / HTTP port selection
+
+Use these flags so scans match an agreed scope (e.g. RoE: “only these listeners”).
+
+| Flag | Role |
+|------|------|
+| `--tcp-scan merge` | **Default.** TCP connect scan uses the built-in port list **plus** any ports from `--tcp-ports` and `--http-ports`. |
+| `--tcp-scan replace` | TCP scan uses **only** ports listed in `--tcp-ports` and/or `--http-ports` (at least one required). Use for minimal, explicit targets. |
+| `--tcp-ports` | Comma-separated list, e.g. `8080,9000`. Ports are always part of the TCP sweep according to `--tcp-scan`. |
+| `--http-ports` | Comma-separated list. Those ports are always in the TCP sweep. **`--http` and `--check` run only on open ports in this list**; other open ports are listed in the surface table but are not HTTP-probed (REST column shows they were outside the HTTP scope). |
+
+**Examples**
+
+```bash
+# Defaults + ensure 9443 is scanned; HTTP checks only on 8080 and 8443
+ss-analysis surface api.internal --http --check --tcp-ports 9443 --http-ports 8080,8443
+
+# Only three TCP ports; full HTTP + checklist on all that respond
+ss-analysis surface 10.0.0.1 --tcp-scan replace --tcp-ports 80,443,8080 --http --check
+```
+
 # HTTP/HTTPS Vulnerability Checklist
 
 ## Transport / TLS
