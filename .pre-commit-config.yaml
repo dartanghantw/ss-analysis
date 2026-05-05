@@ -1,0 +1,44 @@
+# Install: uv sync --group dev && uv run pre-commit install
+# Optional: uv run pre-commit install --hook-type pre-push  (for pip-audit on push)
+#
+# Requires `uv` and `make` on PATH (hooks invoke Makefile recipes).
+
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: make-ruff
+        name: ruff (make ruff)
+        entry: make ruff
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: make-pytest
+        name: pytest (make pytest)
+        entry: make pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Network-heavy; runs on `git push` / `pre-commit run pip-audit --all-files` only.
+      - id: make-pip-audit
+        name: pip-audit (make pip-audit)
+        entry: make pip-audit
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push, manual]

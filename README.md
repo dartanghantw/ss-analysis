@@ -123,6 +123,17 @@ uv sync --group dev
 uv run pytest tests/ -q
 ```
 
+### Pre-commit
+
+```bash
+uv sync --group dev
+uv run pre-commit install              # run hooks on git commit
+uv run pre-commit install --hook-type pre-push   # optional: pip-audit before push
+uv run pre-commit run --all-files      # run once manually
+```
+
+Hooks include **pre-commit-hooks** (whitespace, YAML/TOML, merge conflicts, large files) and **`make ruff`**, **`make pytest`**. **`make pip-audit`** is registered for **pre-push** and **manual** only (slower, needs network).
+
 ---
 
 ## Project layout
