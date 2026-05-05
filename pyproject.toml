@@ -1,0 +1,19 @@
+[project]
+name = "ss-analysis"
+version = "0.1.0"
+description = "CLI surface scanner for network security assessments"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+ss-analysis = "ss_analysis.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ss_analysis"]
