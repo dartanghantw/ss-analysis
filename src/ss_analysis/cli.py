@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import socket
+from enum import Enum
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -10,10 +12,16 @@ from rich.table import Table
 
 from ss_analysis.check_engine import CheckResult, run_checklist
 from ss_analysis.data import COMMON_SERVICE_NAMES, DEFAULT_UDP_PORTS
+from ss_analysis.html_report import build_html_report
 from ss_analysis.http_context import HttpCheckContext, collect_http_check_context
 from ss_analysis.http_probe import HttpProbeResult, probe_http, rest_likelihood
 from ss_analysis.port_spec import TcpScanPolicy, build_scan_tcp_ports, http_probe_port_set, parse_port_csv
 from ss_analysis.scan import PortHit, scan_tcp_ports, scan_udp_ports
+
+
+class ReportFormat(str, Enum):
+    stdout = "stdout"
+    html = "html"
 
 app = typer.Typer(
     invoke_without_command=False,
@@ -185,6 +193,17 @@ def surface(
         "--check",
         help="Run PROJECT.md HTTP/HTTPS vulnerability checklist (passive/safe probes).",
     ),
+    report: ReportFormat = typer.Option(
+        ReportFormat.stdout,
+        "--report",
+        help='Output format: "stdout" (default Rich tables) or "html" (standalone HTML file).',
+        case_sensitive=False,
+    ),
+    report_output: str | None = typer.Option(
+        None,
+        "--report-output",
+        help="File path for the HTML report (default: ss-analysis-<host>.html).",
+    ),
 ) -> None:
     """Discover open TCP and UDP ports on a target."""
     want_http_columns = http
@@ -269,21 +288,39 @@ def surface(
 
     rows = asyncio.run(enrich_all()) if try_probe_for_surface else [_base_tcp_row(h) for h in hits]
 
-    console.print(_build_surface_table(rows, with_http=want_http_columns))
-
+    check_results: list[tuple[int, list[CheckResult] | None]] = []
     if want_check:
         for hit in tcp_hits:
             if not should_probe_http(hit):
                 continue
             ctx = check_by_port.get(hit.port)
             if ctx is None:
-                _result_table(
-                    f"check — {host}:{hit.port}",
-                    "No HTTP/HTTPS response on this port (cleartext GET / and TLS GET / failed).",
-                )
-                continue
-            results = run_checklist(ctx)
-            console.print(_check_table(host, hit.port, results))
+                check_results.append((hit.port, None))
+            else:
+                check_results.append((hit.port, run_checklist(ctx)))
+
+    if report == ReportFormat.html:
+        html_content = build_html_report(
+            host,
+            rows,
+            with_http=want_http_columns,
+            check_tables=check_results if want_check else None,
+        )
+        out_path = Path(report_output) if report_output else Path(f"ss-analysis-{host}.html")
+        out_path.write_text(html_content, encoding="utf-8")
+        console.print(f"[bold green]HTML report written to:[/] {out_path.resolve()}")
+        return
+
+    console.print(_build_surface_table(rows, with_http=want_http_columns))
+
+    for port, results in check_results:
+        if results is None:
+            _result_table(
+                f"check — {host}:{port}",
+                "No HTTP/HTTPS response on this port (cleartext GET / and TLS GET / failed).",
+            )
+        else:
+            console.print(_check_table(host, port, results))
 
 
 def main() -> None:

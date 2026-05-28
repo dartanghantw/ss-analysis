@@ -66,6 +66,8 @@ ss-analysis surface [OPTIONS] HOST
 | `--http-ports` | Comma-separated ports included in the TCP sweep; **`--http` / `--check` apply only to these** among open TCP ports. |
 | `--http` | Adds columns **HTTP** (yes/no) and **REST hint** (heuristic) for probed ports. |
 | `--check` | After the surface table, prints one **HTTP/HTTPS checklist** table per probed open TCP port where HTTP/TLS responds. |
+| `--report` | **`stdout`** (default): Rich tables to the terminal. **`html`**: write a self-contained HTML report file (styled after the Databricks Labs palette). |
+| `--report-output` | File path for the HTML report (default: `ss-analysis-<host>.html`). Only meaningful with `--report html`. |
 
 ### Standard workflows
 
@@ -83,7 +85,16 @@ ss-analysis surface [OPTIONS] HOST
 
    Here `--http-ports` can be omitted if you want HTTP probes on every open port in that list; add `--http-ports 8080` if you only want the checklist on `8080` while still scanning all three for TCP openness.
 
-3. **Add oddball ports to the default sweep** without changing HTTP probe scope:
+3. **Generate an HTML report** with full HTTP checks (opens in any browser, print-friendly):
+
+   ```bash
+   ss-analysis surface example.com --http --check --report html
+   # → writes ss-analysis-example.com.html
+
+   ss-analysis surface 10.0.0.5 --http --check --report html --report-output audit.html
+   ```
+
+4. **Add oddball ports to the default sweep** without changing HTTP probe scope:
 
    ```bash
    ss-analysis surface db.internal --tcp-ports 27017,9200
@@ -106,7 +117,9 @@ ss-analysis surface example.com --http --check
 
 ## Output
 
-All user-facing results are **Rich tables** (including errors such as DNS resolution failures). There is no JSON/CSV mode in the current CLI.
+All user-facing results are **Rich tables** by default (including errors such as DNS resolution failures).
+
+With **`--report html`**, the CLI writes a **standalone HTML file** (no external assets) styled after the [Databricks Labs](https://www.databricks.com/learn/labs) design palette. The report includes summary cards for pass/fail/warn counts, responsive tables, print-friendly styles, and XSS-safe escaping.
 
 ---
 
@@ -167,6 +180,7 @@ src/ss_analysis/
   http_probe.py         # Lightweight HTTP probe for --http
   http_context.py       # Richer context for --check (TLS, headers, path probes)
   check_engine.py       # Checklist evaluation → table rows
+  html_report.py        # Standalone HTML report generator (--report html)
   data.py               # Default port lists and name hints
 tests/
   test_port_spec.py     # Port list / merge / replace unit tests
