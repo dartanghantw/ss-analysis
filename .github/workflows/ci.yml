@@ -66,16 +66,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        name: Checkout code
 
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-
-      - name: Install deps (locked)
-        run: uv sync --group dev --frozen
-
-      - name: Betterleaks secret scanning
-        run: make betterleaks
+      - uses: betterleaks/betterleaks@main
+        name: Scan for secrets with Betterleaks
 
   test:
     name: Tests (make pytest)
