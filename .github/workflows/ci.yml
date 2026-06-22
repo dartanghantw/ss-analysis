@@ -45,7 +45,7 @@ jobs:
       - name: Ruff
         run: make ruff
 
-  security:
+  security-dependencies:
     name: Security (make pip-audit)
     runs-on: ubuntu-latest
     steps:
@@ -60,6 +60,22 @@ jobs:
 
       - name: Dependency vulnerability audit
         run: make pip-audit
+
+  security-secret-scanning:
+    name: Security (Betterleaks secret scanning)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install deps (locked)
+        run: uv sync --group dev --frozen
+
+      - name: Betterleaks secret scanning
+        run: make betterleaks
 
   test:
     name: Tests (make pytest)

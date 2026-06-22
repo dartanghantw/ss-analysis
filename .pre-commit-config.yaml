@@ -24,6 +24,11 @@ repos:
       - id: pip-audit
         entry: uv run pip-audit
 
+  - repo: https://github.com/betterleaks/betterleaks
+    rev: v1.3.1  # Replace with the latest Betterleaks version tag
+    hooks:
+      - id: betterleaks
+
   - repo: local
     hooks:
       - id: make-ruff
