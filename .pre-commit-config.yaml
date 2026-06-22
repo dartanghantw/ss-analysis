@@ -18,6 +18,12 @@ repos:
         args: [--maxkb=512]
       - id: check-merge-conflict
 
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.6.0
+    hooks:
+      - id: pip-audit
+        entry: uv run pip-audit
+
   - repo: local
     hooks:
       - id: make-ruff
