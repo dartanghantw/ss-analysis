@@ -79,7 +79,7 @@ jobs:
 
   test:
     name: Tests (make pytest)
-    needs: [cosmetic, security]
+    needs: [cosmetic, security-dependencies, security-secret-scanning]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
