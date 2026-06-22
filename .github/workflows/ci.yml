@@ -65,11 +65,15 @@ jobs:
     name: Security (Betterleaks secret scanning)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-        name: Checkout code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: betterleaks/betterleaks@main
-        name: Scan for secrets with Betterleaks
+      - name: Run Betterleaks
+        uses: betterleaks/betterleaks@main
+        with:
+          args: "--verbose --exit-code 1"
 
   test:
     name: Tests (make pytest)
