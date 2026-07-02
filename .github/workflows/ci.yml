@@ -61,21 +61,21 @@ jobs:
       - name: Dependency vulnerability audit
         run: make pip-audit
 
-  # security-secret-scanning:
-  #   name: Security (Betterleaks secret scanning)
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Install deps (locked)
-  #       run: |
-  #         ls -larth
-  #         git clone https://github.com/betterleaks/betterleaks
-  #         cd betterleaks
-  #         make build
-  #     - uses: actions/checkout@v5
-  #       with:
-  #         path: project
-  #     - name: Betterleaks secret scanning
-  #       run: ./betterleaks/betterleaks  dir ./project  -v
+  security-secret-scanning:
+    name: Security (Betterleaks secret scanning)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install deps (locked)
+        run: |
+          ls -larth
+          git clone https://github.com/betterleaks/betterleaks
+          cd betterleaks
+          make build
+      - uses: actions/checkout@v5
+        with:
+          path: project
+      - name: Betterleaks secret scanning
+        run: ./betterleaks/betterleaks  dir ./project  -v
 
   test:
     name: Tests (make pytest)
