@@ -71,7 +71,7 @@ jobs:
         run: |
           git clone https://github.com/betterleaks/betterleaks
           cd betterleaks
-          make betterleaks
+          make
 
       - name: Betterleaks secret scanning
         run: betterleaks dir /path/to/file/or/dir -v
