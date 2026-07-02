@@ -110,7 +110,7 @@ jobs:
   release:
     name: Release (wheel + GitHub Release)
     runs-on: ubuntu-latest
-    needs: [version]
+    needs: [version-bump]
     permissions:
       contents: write
     steps:
