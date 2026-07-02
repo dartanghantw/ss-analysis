@@ -75,7 +75,7 @@ jobs:
           ls -larth
 
       - name: Betterleaks secret scanning
-        run: ./betterleaks/betterleaks  dir ./ -v
+        run: ./betterleaks/betterleaks  dir ss-analysis -v
 
   test:
     name: Tests (make pytest)
