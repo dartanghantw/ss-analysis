@@ -71,7 +71,7 @@ jobs:
         run: |
           git clone https://github.com/betterleaks/betterleaks
           cd betterleaks
-          make
+          make build
           ls -larth
 
       - name: Betterleaks secret scanning
