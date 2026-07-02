@@ -69,13 +69,13 @@ jobs:
 
       - name: Install deps (locked)
         run: |
+          ls -larth
           git clone https://github.com/betterleaks/betterleaks
           cd betterleaks
           make build
-          ls -larth
 
       - name: Betterleaks secret scanning
-        run: ./betterleaks/betterleaks  dir ss-analysis -v
+        run: ./betterleaks/betterleaks  dir ./ss-analysis -v
 
   test:
     name: Tests (make pytest)
