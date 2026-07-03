@@ -7,6 +7,12 @@ default_language_version:
   python: python3.12
 
 repos:
+  - repo: https://github.com/commit-check/commit-check
+    rev: v2.10.1
+    hooks:
+      - id: check-message
+      - id: check-branch
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
