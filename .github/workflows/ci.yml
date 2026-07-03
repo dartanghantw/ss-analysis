@@ -130,7 +130,7 @@ jobs:
   release:
     name: Release (wheel + GitHub Release)
     runs-on: ubuntu-latest
-    needs: [version-bump]
+    needs: [version-bump, cosmetic, test, security-dependencies, security-secret-scanning]
     permissions:
       contents: write
     steps:
@@ -171,3 +171,19 @@ jobs:
               --title "$TAG" \
               --generate-notes
           fi
+
+      - name: Write summary
+        run: |
+          TAG="${{ needs.version-bump.outputs.version }}"
+          echo "## Version $TAG" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status | Duration |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ✅ | ${{ needs.cosmetic.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security (dependencies) | ✅ | ${{ needs.security-dependencies.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security (secret scanning) | ✅ | ${{ needs.security-secret-scanning.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ✅ | ${{ needs.test.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version bump | ✅ | ${{ needs.version-bump.outputs.duration }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
